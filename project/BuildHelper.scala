@@ -31,7 +31,8 @@ object BuildHelper {
     "-Wunused:patvars",
     "-Wunused:privates",
     "-Wunused:params",
-    "-Wvalue-discard"
+    "-Wvalue-discard",
+    "-Ymacro-annotations"
   )
 
   private val stdOptsUpto212 = Seq(
@@ -80,6 +81,7 @@ object BuildHelper {
           .cross(CrossVersion.full),
         compilerPlugin(("com.github.ghik" % "silencer-plugin" % SilencerVersion).cross(CrossVersion.full)),
         compilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3")
+//        compilerPlugin(("org.scalamacros" % "paradise"  % "2.1.1") cross CrossVersion.full)
       ),
     incOptions ~= (_.withLogRecompileOnMacro(false))
   )

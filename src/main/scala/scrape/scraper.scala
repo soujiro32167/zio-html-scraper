@@ -1,11 +1,11 @@
 package scrape
 
 import org.http4s.Uri
-import org.http4s.client.Client
 import org.jsoup.Jsoup
+import scrape.ClientModule.Service
 import scrape.jsoup._
 import zio.interop.catz._
-import zio.{RIO, Task, ZIO}
+import zio.{RIO, Task}
 
 import scala.jdk.CollectionConverters._
 
@@ -15,8 +15,8 @@ object scraper {
 
   case class Report(title: String, year: String, format: String, extent: String, company: String)
 
-  def scrape(uri: Uri): RIO[Client[Task], Company] = for {
-    content <- ZIO.accessM[Client[Task]](_.expect[String](uri))
+  def scrape(uri: Uri): RIO[ClientModule, Company] = for {
+    content <- Service.client.flatMap(_.expect[String](uri))
     doc   <- Task(Jsoup.parse(content))
     name  <- doc.zelectFirst(".card-title").map(_.fold("")(_.ownText()))
     stats <- doc.zelect(".list-group-item").map(
