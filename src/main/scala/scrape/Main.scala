@@ -8,7 +8,9 @@ import org.http4s.client.blaze.BlazeClientBuilder
 import org.http4s.client.middleware.RequestLogger
 import org.http4s.implicits._
 import zio._
+import zio.clock.Clock
 import zio.console._
+import zio.duration.Duration
 import zio.interop.catz._
 import zio.macros.delegate._
 import zio.macros.delegate.syntax._
@@ -37,7 +39,7 @@ object Main extends ManagedApp {
     }.fold(_ => 1, _ => 0 )
   }
 
-  private val myAppLogic =
+  val myAppLogic: RIO[Console with ClientModule with Clock, List[Either[Throwable, (Duration, scraper.Company)]]] =
     RIO.sequenceParN(3)(
       (10 to 50)
         .map(page =>
