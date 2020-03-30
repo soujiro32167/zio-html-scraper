@@ -2,7 +2,7 @@ package scrape
 
 import org.http4s.Uri
 import org.jsoup.Jsoup
-import scrape.ClientModule.Service
+import scrape.ClientModule.ClientModule
 import scrape.jsoup._
 import zio.interop.catz._
 import zio.{RIO, Task}
@@ -16,14 +16,14 @@ object scraper {
   case class Report(title: String, year: String, format: String, extent: String, company: String)
 
   def scrape(uri: Uri): RIO[ClientModule, Company] = for {
-    content <- Service.client.flatMap(_.expect[String](uri))
+    content <- ClientModule.expect[String](uri)
     doc   <- Task(Jsoup.parse(content))
     name  <- doc.zelectFirst(".card-title").map(_.fold("")(_.ownText()))
     stats <- doc.zelect(".list-group-item").map(
       _.map(_.children.asScala.toList.map(_.ownText.replace(":", "").trim).filterNot(_.isEmpty))
         .collect{ case List(k, v) => (k, v) }
     )
-    reports <- doc.zelect("#reports-all ~ .row .card").flatMap(es => Task.sequence(es.map( card =>
+    reports <- doc.zelect("#reports-all ~ .row .card").flatMap(es => Task.collectAll(es.map( card =>
       for {
         title <- card.zelectFirst("h5").map(_.fold("")(_.text))
         year <- card.zelectFirst(".label-info").map(_.fold("")(_.ownText))

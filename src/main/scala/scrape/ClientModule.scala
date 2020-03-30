@@ -1,24 +1,14 @@
 package scrape
 
+import org.http4s.{EntityDecoder, Uri}
 import org.http4s.client.Client
-import zio.{Task, URIO, ZIO}
+import zio.{Has, Task, ZIO}
 
-trait ClientModule extends Serializable{
-  val clientModule: ClientModule.Service[Any]
-}
-
+//@accessible
 object ClientModule {
-  trait Service[R] extends Serializable {
-    val client: Client[Task]
-  }
+  type ClientModule = Has[Client[Task]]
 
-  object Service {
-    val client: URIO[ClientModule, Client[Task]] = ZIO.access[ClientModule](_.clientModule.client)
-  }
+  trait Service extends org.http4s.client.Client[Task]
 
-  def fromClient(c: Client[Task]): ClientModule =  new ClientModule {
-    val clientModule: Service[Any] = new Service[Any] {
-      val client: Client[Task] = c
-    }
-  }
+  def expect[T](uri: Uri)(implicit dec: EntityDecoder[Task, T]) = ZIO.accessM[ClientModule](_.get.expect(uri))
 }

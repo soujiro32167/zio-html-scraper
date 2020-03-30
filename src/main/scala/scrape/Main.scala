@@ -7,15 +7,14 @@ import org.http4s.client.Client
 import org.http4s.client.blaze.BlazeClientBuilder
 import org.http4s.client.middleware.RequestLogger
 import org.http4s.implicits._
+import scrape.ClientModule.ClientModule
 import zio._
 import zio.clock.Clock
 import zio.console._
 import zio.duration.Duration
 import zio.interop.catz._
-import zio.macros.delegate._
-import zio.macros.delegate.syntax._
 
-object Main extends ManagedApp {
+object Main extends App {
 
   private val log = org.log4s.getLogger
 
@@ -32,15 +31,16 @@ object Main extends ManagedApp {
 
   private def withRequestLogger(client: Client[Task]): Client[Task] = RequestLogger[Task](logHeaders = false, logBody = true, logAction = Some(s => Task(org.log4s.getLogger(scraper.getClass).debug(s))))(client)
 
-  override def run(args: List[String]): ZManaged[ZEnv, Nothing, Int] = {
-    ZIO.runtime[ZEnv].toManaged_.flatMap{ implicit rts =>
+  override def run(args: List[String]) = {
+    ZIO.runtime[ZEnv].flatMap{ implicit rts =>
       val managed = BlazeClientBuilder[Task](rts.platform.executor.asEC).withSslContext(TrustingSslContext).resource.map(withRequestLogger).toManaged
-      ZIO.environment[ZEnv] @@ enrichWithManaged[ClientModule](managed.map(ClientModule.fromClient)) >>> myAppLogic.toManaged_
+      val fullLayer = Console.live ++ ZLayer.fromManaged(managed) ++ Clock.live
+      myAppLogic.provideLayer(fullLayer)
     }.fold(_ => 1, _ => 0 )
   }
 
   val myAppLogic: RIO[Console with ClientModule with Clock, List[Either[Throwable, (Duration, scraper.Company)]]] =
-    RIO.sequenceParN(3)(
+    RIO.collectAllParN(10)(
       (10 to 50)
         .map(page =>
           scraper.scrape(uri"https://database.globalreporting.org/organizations" / page.toString / "")
