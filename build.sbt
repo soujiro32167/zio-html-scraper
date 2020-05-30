@@ -18,15 +18,15 @@ ThisBuild / publishTo := sonatypePublishToBundle.value
 addCommandAlias("fmt", "all scalafmtSbt scalafmt test:scalafmt")
 addCommandAlias("check", "all scalafmtSbtCheck scalafmtCheck test:scalafmtCheck")
 
-val zioVersion = "1.0.0-RC18-2"
-val http4sVersion = "0.21.0"
-val zioMacrosVersion = "0.6.2"
+val zioVersion = "1.0.0-RC20"
+val http4sVersion = "0.21.4"
+
 libraryDependencies ++= Seq(
   "dev.zio"   %% "zio"          % zioVersion,
-  "dev.zio"   %% "zio-interop-cats"    % "2.0.0.0-RC12",
-
+  "dev.zio" %% "zio-macros" % zioVersion,
+  "dev.zio"   %% "zio-interop-cats"    % "2.1.3.0-RC15",
+  "dev.zio"   %% "zio-streams" % zioVersion,
   "org.http4s"  %% "http4s-blaze-client" % http4sVersion,
-
   "org.jsoup" % "jsoup" % "1.12.1",
 
   "ch.qos.logback"  %  "logback-classic"     % "1.2.3",
@@ -43,7 +43,7 @@ lazy val root =
       stdSettings("miron-scrape"),
       scalacOptions += "-Ymacro-annotations"
     )
-    .settings(buildInfoSettings("miron-scrape"))
+    .settings(buildInfoSettings("scrape"))
     .enablePlugins(BuildInfoPlugin)
 
 lazy val docs = project

@@ -5,7 +5,7 @@ import org.jsoup.Jsoup
 import scrape.ClientModule.ClientModule
 import scrape.jsoup._
 import zio.interop.catz._
-import zio.{RIO, Task}
+import zio.{RIO, Task, ZIO}
 
 import scala.jdk.CollectionConverters._
 
@@ -16,22 +16,22 @@ object scraper {
   case class Report(title: String, year: String, format: String, extent: String, company: String)
 
   def scrape(uri: Uri): RIO[ClientModule, Company] = for {
-    content <- ClientModule.expect[String](uri)
+    client <- ZIO.access[ClientModule](_.get)
+    content <- client.expect[String](uri)
     doc   <- Task(Jsoup.parse(content))
     name  <- doc.zelectFirst(".card-title").map(_.fold("")(_.ownText()))
     stats <- doc.zelect(".list-group-item").map(
       _.map(_.children.asScala.toList.map(_.ownText.replace(":", "").trim).filterNot(_.isEmpty))
         .collect{ case List(k, v) => (k, v) }
     )
-    reports <- doc.zelect("#reports-all ~ .row .card").flatMap(es => Task.collectAll(es.map( card =>
+    reports <- doc.zelect("#reports-all ~ .row .card").flatMap(es => ZIO.foreach(es)(card =>
       for {
         title <- card.zelectFirst("h5").map(_.fold("")(_.text))
         year <- card.zelectFirst(".label-info").map(_.fold("")(_.ownText))
         format <- card.zelectFirst(".label-primary").map(_.fold("")(_.ownText))
         extent <- card.zelectFirst(".label-success").map(_.fold("")(_.ownText))
         company <- card.zelectFirst(".card-text").map(_.fold("")(_.text))
-      } yield Report(title, year, format, extent, company)
-    )))
+      } yield Report(title, year, format, extent, company)))
 
     contact <- doc.zelectFirst(".card:has(h4:contains(Contact))").map(_.map( e =>
       e.textNodes.asScala.toList.filterNot(_.isBlank).map(_.text.split(":").map(_.trim)).collect{

@@ -31,22 +31,19 @@ object Main extends App {
 
   private def withRequestLogger(client: Client[Task]): Client[Task] = RequestLogger[Task](logHeaders = false, logBody = true, logAction = Some(s => Task(org.log4s.getLogger(scraper.getClass).debug(s))))(client)
 
-  override def run(args: List[String]) = {
+  override def run(args: List[String]): ZIO[zio.ZEnv, Nothing, ExitCode] = {
     ZIO.runtime[ZEnv].flatMap{ implicit rts =>
       val managed = BlazeClientBuilder[Task](rts.platform.executor.asEC).withSslContext(TrustingSslContext).resource.map(withRequestLogger).toManaged
       val fullLayer = Console.live ++ ZLayer.fromManaged(managed) ++ Clock.live
       myAppLogic.provideLayer(fullLayer)
-    }.fold(_ => 1, _ => 0 )
+    }.exitCode
   }
 
   val myAppLogic: RIO[Console with ClientModule with Clock, List[Either[Throwable, (Duration, scraper.Company)]]] =
-    RIO.collectAllParN(10)(
-      (10 to 50)
-        .map(page =>
-          scraper.scrape(uri"https://database.globalreporting.org/organizations" / page.toString / "")
-          .timed
-          .tapError(e => Task(log.warn(e)(s"Failed on page $page")))
-          .either
-          .tap(c => putStrLn(c.toString))
-      ))
+    ZIO.foreachParN(10)(10 to 50)(page =>
+      scraper.scrape(uri"https://database.globalreporting.org/organizations" / page.toString / "")
+        .timed
+        .tapError(e => Task(log.warn(e)(s"Failed on page $page")))
+        .either
+        .tap(c => putStrLn(c.toString)))
 }
